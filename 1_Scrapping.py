@@ -1,7 +1,7 @@
 import time
 from time import sleep
-from random import randint
 import pandas as pd
+import csv
 
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
@@ -16,76 +16,95 @@ from selenium.common.exceptions import NoSuchElementException
 option = webdriver.ChromeOptions()
 option.add_argument("--incognito")
 
-job_search_keyword = ['Data+Scientist', 'Data+Engineer', 'Data+Analyst', 'Machine+Learning', 
-                      'Software+Developer', 'Full+Stach+Developer', 'Frontend+Developer', 
-                      'Backend+Developer', 'Devops+Engineer', 'Business+Analyst']
-
-page_url = 'https://in.indeed.com/jobs?q={}'
-
-start = time.time()
-
-job_lst=[]
-job_description_list=[]
-salary_list = []
-
-driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()),
-                          options=option)
-sleep(3)
-counter = 1
-br = 0
-
-for job_title in job_search_keyword:
+def Scrapper(job_role, counter):
+    driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()),
+                            options=option)
     
-    driver.get(page_url.format(job_title))
-    driver.get(page_url.format("data analyst"))
+    sleep(2)
+    driver.get(page_url.format(job_role))
     sleep(3)
+    break_ = 0
 
-    while br != -1:
+    while break_ != -1:
         try:
             close_pop_btn = driver.find_element(By.XPATH, "//*[@id='mosaic-desktopserpjapopup']/div[1]/button")
             close_pop_btn.click()
+            print("POP CLOSED!\n")
         except NoSuchElementException:
-            print("page closed")
+            print("NO POP UP!\n")
         
         job_page = driver.find_element(By.ID,"mosaic-jobResults")
         jobs = job_page.find_elements(By.CLASS_NAME,"job_seen_beacon") 
 
-        for jj in jobs:
+        for job in jobs:
             print("job counter", counter)
-            counter += 1
+            #extarcting job details
+            job_title = job.find_element(By.CLASS_NAME, 'jobTitle')
+            title = job_title.text
+            
+            location = job.find_element(By.CLASS_NAME,"company_location").text,
 
-            job_title = jj.find_element(By.CLASS_NAME,"jobTitle")
-
-            job_lst.append([job_title.text,
-            job_title.find_element(By.CSS_SELECTOR,"a").get_attribute("href"),
-            job_title.find_element(By.CSS_SELECTOR,"a").get_attribute("id"),           
-            jj.find_element(By.CLASS_NAME,"company_location").text,
-            job_title.find_element(By.CSS_SELECTOR,"a").get_attribute("href")])
-
+            #extracting salary
             try: 
-                salary_list.append(jj.find_element(By.CLASS_NAME,"salary-snippet-container").text)
-
+                salary = job.find_element(By.CLASS_NAME,"salary-snippet-container").text
             except NoSuchElementException: 
                 try: 
-                    salary_list.append(jj.find_element(By.CLASS_NAME,"estimated-salary").text)
-                
+                    salary = job.find_element(By.CLASS_NAME,"estimated-salary").text
                 except NoSuchElementException:
-                    salary_list.append(None)
-    
-            # job_title.click()
-            # sleep(randint(3, 5))
-            # try: 
-            #     job_description_list.append(driver.find_element(By.ID,"jobDescriptionText").text)
-            # except: 
-            #     job_description_list.append(None)
+                    salary = "None"
+
+            #extracting job description
+            job_title.click()
+            sleep(2)
+            try: 
+                description = driver.find_element(By.ID,"jobDescriptionText").text
+            except: 
+                description = "None"
+            
+            print("Title: ", title)
+            print("Location: ", location)
+            print("Salary: ", salary)
+            print("Description", description)
+            print("\n")
+                
+            job_details = ([counter, job_role, title, location, salary, description])
+
+            #adding data to csv file
+            data_file = '/Users/ayankumar/Desktop/SkillQuest/data-base/data.csv'
+            csv_writer(job_details)
+            counter += 1
             
         try:
-            print("clicking next page")
+            print("Next Page\n")
             next_page_btn = driver.find_element(By.XPATH, f"//a[@data-testid='pagination-page-next']")
             next_page_btn.click()
         except NoSuchElementException:
-            br = -1
+            print("All Jobs Extracted!! \nMoving to next JOB ROLE")
+            break_ = -1
 
     driver.quit()
 
+    return counter
 
+#adding data to csv file
+def csv_writer(job_detaiils):
+    data_file = '/Users/ayankumar/Desktop/SkillQuest/data-base/data.csv'
+    with open(data_file, mode='a', newline='') as file:
+        writer = csv.writer(file)
+        #writer.writerow(['Id', 'Job Category', 'Job Title', 'Location', 'Salary', 'Job Description'])
+        #writer.writerow([counter, job_title, title, location, salary, desicription])
+        writer.writerows([job_detaiils])
+
+
+
+job_search_keyword = ['Data+Scientist', 'Data+Engineer', 'Data+Analyst', 'Machine+Learning',
+                      'Software+Developer', 'Full+Stack+Developer', 'Frontend+Developer', 'Backend+Developer', 
+                      'Devops+Engineer', 'UI/UX+Designer', 'Business+Analyst', 'System+Administrator', 
+                      'Network+Administrator', 'Cloud+Engineer']
+
+page_url = 'https://in.indeed.com/jobs?q={}'
+
+counter = 0
+
+for jobs in job_search_keyword:
+    counter = Scrapper(jobs, counter + 1)
